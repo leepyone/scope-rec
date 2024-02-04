@@ -1,0 +1,12 @@
+/data/dataset/
+/.idea/
+/SASRec/dataset/
+/SASRec/log/
+/SASRec/log_tensorboard/
+/SASRec/server_log/
+/SASRec/saved/
+/snap/
+/__pycache__/
+/SFT/__pycache__
+/logs/
+/RLHF/__pycache__/
