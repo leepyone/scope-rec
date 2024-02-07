@@ -1,0 +1,17 @@
+python train.py 
+--seed 0 
+--data_path /home/wangshuo/codes/InstructControllableRec_RLHF/data/dataset/steam 
+--output /home/wangshuo/codes/InstructControllableRec_RLHF/snap/0205-steam/test/epoch40 
+--backbone meta-llama/Llama-2-7b-hf 
+--item_index title 
+--test_batch_size 16 
+--topk 10 
+--gpu cuda:0 
+--gen_max_length 512 
+# --quantization 
+--train_stage SFT_Test 
+--SFT_actor_lora_r 16 
+--SFT_test_task SFTTestSeqRec 
+--backup_ip 0.0.0.0
+--SFT_load /home/wangshuo/codes/InstructControllableRec_RLHF/snap/0205-steam/Epoch40_SFT 
+# --FA2

@@ -18,8 +18,14 @@ class SFTDataset(Dataset):
         self.task_num = task_num
         self.mode = mode
         self.tokenizer = tokenizer
+        # 根据不同的数据集需要调整对应sasrec的端口号
         self.teacher_port = 2024 if 'steam' in args.data_path else 12620
 
+        if args.user_control_symbol:
+            ctrl_symbols = ['<SOI>', '<EOI>']
+            self.ctrl_symbols = list(map(self.tokenizer.convert_tokens_to_ids, ctrl_symbols))
+            # 创建前缀树
+            self.create_item_prefix_tree()
         self.category2item = data['category']
         self.metas = data['metas']
         self.sequential = data['sequential']
@@ -27,6 +33,7 @@ class SFTDataset(Dataset):
         # self.intention = data['intention']
         self.share_chat_gpt = data['share_chat_gpt']
         self.ranking_candidate = data['ranking_candidate']
+        self.item_list = data['item_list']
         if self.args.llama2_chat_template:
             self.chat_gpt_conv = get_conversation_template("llama-2")
             self.chat_gpt_conv.set_system_message("You are a helpful, respectful and honest assistant.")
@@ -61,6 +68,17 @@ class SFTDataset(Dataset):
         self.complete_datum_info = load_pickle(self.complete_datum_info_path) or []
 
         self.compute_datum_info()
+
+    def create_item_prefix_tree(self):
+        item_list = list(map(lambda x: x.strip(), self.item_list)) # list(list)
+        item_ids = self.tokenizer.batch_encode_plus(item_list,add_special_tokens=False).data['input_ids']
+        input_ids_append =[]
+        for item in item_ids:
+            new_list = []
+            new_list= [self.ctrl_symbols[0]]+item+[self.ctrl_symbols[1]]
+            input_ids_append.append(new_list)
+
+        self.item_prefix_tree = Trie(input_ids_append)
 
     def find_maximum_category(self, item_list, target_item):
         category_count = {c: 0 for c in self.category2item if target_item not in self.category2item[c]}
@@ -241,7 +259,7 @@ class SFTDataset(Dataset):
                     'candidate_items': candidate_items
                 })
                 output_field_data.update({
-                    'item_list': get_output_text([self.get_item_index(_) for _ in output_items], '\n'+self.tokenizer.eos_token, self.args.idx)
+                    'item_list': get_output_text([self.get_item_index(_) for _ in output_items], '\n'+self.tokenizer.eos_token, self.args.idx,self.args.user_control_symbol)
                 })
             # if task in ['SFTValSeqRec']:
             #     item_count = 1
@@ -608,3 +626,53 @@ Test_task_group_mapping = {
     "SFTTestPersonalCategoryRateEP": TestPersonalCategoryRateEP_group,
     'SFTTestItemCount': ValSeqRec_group,
 }
+class Trie:
+    def __init__(self,token_ids, no_subsets=False) -> None: 
+        self.max_height = max([len(one) for one in token_ids])
+
+        root = {}
+        for token_ids in token_ids:
+            level = root
+            for tidx, token_id in enumerate(token_ids):
+                if token_id not in level:
+                    level[token_id] = {}
+
+                level = level[token_id]
+
+        if no_subsets and self.has_subsets(root, token_ids):
+            raise ValueError(
+                "Each list in `token_ids` can't be a complete subset of another list, but is"
+                f" {token_ids}."
+            )
+
+        self.trie = root
+
+    def has_subsets(self, trie, nested_token_ids):
+        leaf_count = self.count_leaves(trie)
+        return len(nested_token_ids) != leaf_count
+    
+    def next_tokens(self, current_seq): # 这个只返回一层对应的token 
+        
+        if len(current_seq) == 0:
+            return list(self.trie.keys())
+
+        start = self.trie
+
+        for current_token in current_seq:
+            start = start[current_token]
+
+        next_tokens = list(start.keys())
+
+        return next_tokens
+
+    def reached_leaf(self, current_seq):
+        next_tokens = self.next_tokens(current_seq)
+
+        return len(next_tokens) == 0
+
+    def count_leaves(self, root):
+        next_nodes = list(root.values())
+        if len(next_nodes) == 0:
+            return 1
+        else:
+            return sum([self.count_leaves(nn) for nn in next_nodes])

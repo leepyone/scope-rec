@@ -57,6 +57,7 @@ class SFTTrainer(Trainer):
             # 'intention': load_pickle(args.data_path + 'intention.pickle'),
             'share_chat_gpt': load_pickle('/home/wangshuo/codes/InstructControllableRec_RLHF/data/dataset/share_chat_gpt2.pickle'),
             'ranking_candidate': load_pickle(args.data_path + 'ranking_candidate.pickle'),
+            'item_list': load_pickle(args.data_path + 'items.pickle'),
         }
         self.sft_loss_fct = CrossEntropyLoss(reduction='none')
         if self.args.lower:
@@ -110,6 +111,9 @@ class SFTTrainer(Trainer):
             # window_loss = {_: [0.0]*16 for _ in train_data.task_num}
             pbar = tqdm(total=len(train_loader), ncols=210, disable=not self.accelerator.is_local_main_process)
             self.train()
+            # test save embedding
+            # if self.accelerator.is_main_process:
+            #     self.actor_critic.save_parameters("Epoch%02d" % epoch)
             for step_i, batch in enumerate(train_loader):
                 with self.accelerator.accumulate(warp_actor_critic):
                     # print(f'parameter {step_i}: ', self.actor_critic.actor_parameters[0].data.abs().max())
@@ -367,6 +371,86 @@ class SFTTrainer(Trainer):
                 pbar.update(1)
             pbar.close()
         self.train()
+
+        def SFT_cbs_test(self):
+            torch.cuda.empty_cache()
+            self.eval()
+            TestTaskTemplate = {self.args.SFT_test_task: Test_task_group_mapping[self.args.SFT_test_task.split('_')[0]]}
+            TestTaskNum = {self.args.SFT_test_task: 1}
+            stopping_criteria = StoppingCriteriaList(
+                [MaxLengthCriteria(max_length=self.args.max_token_length + self.args.gen_max_length)]
+            )
+            if self.args.SFT_test_task in ['SFT+TestPersonalControlRec', 'SFT-TestPersonalControlRec'] or self.args.SFT_test_task.startswith('SFTTestPersonalCategoryRate'):
+                TestSeqRec_Result_file = self.args.output + f'Epoch{self.start_epoch:02d}_SFT_Result_SFTTestSeqRec_Top{self.args.topk}.pickle'
+                self.data['SFTTestSeqRec_Result'] = load_pickle(TestSeqRec_Result_file)
+            test_data = SFTDataset(self.args, TestTaskTemplate, TestTaskNum, self.data, self.tokenizer, 'test')
+            test_loader = DataLoader(test_data, batch_size=self.args.test_batch_size, shuffle=False,
+                                    collate_fn=test_data.collate_fn, drop_last=False)
+
+            metrics_dict = Metrics([self.args.SFT_test_task], self.args.topk, test_data.category2item, test_data.title2item)
+            result_file = self.args.backbone+f'Result_{self.args.SFT_test_task}_Top{self.args.topk}.pickle'
+            if self.args.SFT_load:
+                result_file = self.args.SFT_load + f'_Result_{self.args.SFT_test_task}_Top{self.args.topk}.pickle'
+
+            def constrain_search_list(self,batch_id, input_ids):
+                # 1、如果识别出来是控制符，我们就返回限制下的token list
+                try:
+                    has_ctrl,prefix_input_ids = get_prefix(input_ids,test_data.ctrl_symbols) #  control_symbol 是一个数组，[s,e]
+                    if  has_ctrl:
+                        next_tokens =test_data.item_prefix_tree.next_tokens(prefix_input_ids)
+                        # next_tokens =test_data.item_prefix_tree.next_tokens_matrix(prefix_input_ids,len(tokenizer))
+                        if len(next_tokens) != 0:
+                            # print("CBS搜索过程,返回从前缀树检索next_tokens")
+                            return next_tokens
+                    
+                    # 2、如果没有控制符我们就返回全词典的token list
+                    # print("CBS搜索过程,batch id {} 返回全词典".format(batch_id))
+                    return list(test_data.tokenizer.get_vocab().values())
+                except Exception as e:
+                    print("CBS搜索过程中出现问题，batch id 为{}".format(batch_id))
+                    print("这个step的输入 id 为 {}".format(input_ids))
+                    print("错误是：{}".format(e))
+                    return list(test_data.tokenizer.get_vocab().values())
+            
+            with torch.no_grad():
+                result = load_pickle(result_file) or []
+                result = result[:-(len(result) % self.args.batch_size) if (len(result) % self.args.batch_size) != 0 else None]
+                pbar = tqdm(total=len(test_loader), ncols=150)
+                for step_i, batch in enumerate(test_loader):
+                    bs = len(batch['task'])
+                    input_data = batch['input_data']
+                    if step_i % 10000 == 0:
+                        print(batch['input_text'][0])
+                        print(input_data['input_ids'][0])
+                    output_labels = [[__.strip() for __ in _.strip().split('\n')] for _ in batch['output_text']]
+                    if self.args.idx:
+                        output_labels = [[rm_idx(__) for __ in _] for _ in output_labels]
+                    input_ids_length = input_data['input_ids'].shape[1]
+                    if (step_i+1)*self.args.test_batch_size <= len(result):
+                        output_title_list = [_[1] for _ in result[step_i*self.args.test_batch_size: (step_i+1)*self.args.test_batch_size]]
+                    else:
+                        output_ids = self.actor_critic.actor_model.greedy_search(
+                            **input_data,
+                            prefix_allowed_tokens_fn= constrain_search_list,
+                            stopping_criteria=stopping_criteria,
+                        )
+                        output_title = self.tokenizer.batch_decode(output_ids[:, input_ids_length:], skip_special_tokens=True)
+                        if step_i % 10000 == 0:
+                            print(output_title[0])
+                        output_title_list = [[__.strip() for __ in _.strip().split('\n')] for _ in output_title]
+                        if self.args.idx:
+                            output_title_list = [[rm_idx(__) for __ in _] for _ in output_title_list]
+                        result += [[_, __] for _, __ in zip(output_labels, output_title_list)]
+                        if step_i % 100 == 0 or (step_i + 1) == len(test_loader):
+                            save_pickle(result, result_file)
+
+                    for i in range(bs):
+                        metrics_dict.add_sample(batch['task'][i], batch['input_field_data'][i], output_title_list[i], output_labels[i])
+                    metrics_dict.print()
+                    pbar.update(1)
+                pbar.close()
+            self.train()
+
 
     # def SFT_test_pipeline(self):
     #     torch.cuda.empty_cache()

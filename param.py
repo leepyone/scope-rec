@@ -16,6 +16,7 @@ def add_args_SFT(parser):
     parser.add_argument('--SFT_test_task', type=str, default='', help='in {SFTTestSeqRec, SFTTestRanking, SFT+TestPersonalControlRec, SFT-TestPersonalControlRec, SFTTestPersonalCategoryRate_xx%, SFTTestItemCount}')
     parser.add_argument("--SFT_actor_lora_r", type=int, default=16)
     parser.add_argument("--SFT_actor_lora_a", type=int, default=8)
+    parser.add_argument('--user_control_symbol', action='store_true', help='是否添加控制符包裹item，例如，输出 <SOI>item<EOI>\n 2. <SOI>item2<EOI>')
     return parser
 
 

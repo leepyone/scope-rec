@@ -257,12 +257,37 @@ def get_history_text(output_titles: list[str]):
     return history_text
 
 
-def get_output_text(output_titles: list[str], eos_token='', idx=False):
+def get_output_text(output_titles: list[str], eos_token='', idx=False, user_control_symbol=False):
+    if user_control_symbol:
+        output_titles = [f'<SOI>{t}<EOI>' for t in output_titles]
     if not idx:
         output_text = '\n '.join(output_titles)
     else:
         output_text = '\n '.join([f'{i+1}. {t}' for i, t in enumerate(output_titles)])
     return output_text + eos_token
+
+def get_prefix(input_ids, control_symbol):
+    ctrl_s, ctrl_e = control_symbol
+    # 找到所有ctrl_s和ctrl_e的索引
+    
+    ctrl_s_indices = (input_ids == ctrl_s).nonzero(as_tuple=True)[0]
+    ctrl_e_indices = (input_ids == ctrl_e).nonzero(as_tuple=True)[0]
+
+    # 检查ctrl_s和ctrl_e的数量
+    if len(ctrl_s_indices) <= 2:
+        return False, []
+
+    # 从后向前找到第一个ctrl_e和ctrl_s的位置
+    last_ctrl_e_index = ctrl_e_indices[-1].item() if len(ctrl_e_indices) > 0 else -1
+    last_ctrl_s_index = ctrl_s_indices[-1].item() if len(ctrl_s_indices) > 0 else -1
+
+    # 检查索引位置并提取前缀
+    if last_ctrl_s_index > last_ctrl_e_index:
+        prefix = input_ids[last_ctrl_s_index:]
+        return True, prefix.tolist()
+    else:
+        # return False, torch.tensor([], dtype=torch.int64).to(input_ids.device)
+        return False, []
 
 
 # <s>input_text item1\n item2\n item3\n</s>

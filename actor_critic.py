@@ -68,6 +68,7 @@ class ActorCritic(nn.Module):
         self.model_config = self.create_model_config()
         self.tokenizer = self.create_tokenizer()
         self.model = self.create_model(device)
+        self.resize_init_embedding(self.model, self.tokenizer)
 
         self.actor_lora_scope = actor_lora_scope
         self.critic_lora_scope = critic_lora_scope
@@ -113,7 +114,8 @@ class ActorCritic(nn.Module):
             param_dict.update(self.actor_named_parameters)
         if self.args.train_stage in ['RLHF']:
             param_dict.update(self.critic_named_parameters)
-
+        # Save embedding weights
+        param_dict.update({n: p for n, p in self.named_parameters() if "embed_" in n})
         torch.save(param_dict, os.path.join(self.args.output, f"{name}_{self.args.train_stage}.pth"))
 
     def load_parameters(self, load_file):
@@ -167,6 +169,25 @@ class ActorCritic(nn.Module):
         print(f'trainable_params: {" - ".join([str(_) for _ in trainable_params.values()])} | '
               f'all_param: {" - ".join([str(_) for _ in all_param.values()])} | '
               f'percentage: {sum(trainable_params.values())/sum(all_param.values()):.4f}')
+    
+    # 重新调整embedding的大小
+    def resize_init_embedding(self,model,tokenizer):
+        model.resize_token_embeddings(len(tokenizer))
+        # 更新 model config中的字典大小
+        self.model_config.vocab_size = len(tokenizer)
+        descriptions = ['start of item', 'end of item']
+        descriptions = {"<SOI>": "start of item", "<EOI>": "end of item", "<SEP>": "seperator"}
+
+        with torch.no_grad():
+            for key in descriptions:
+                description = descriptions[key]
+                key_id = tokenizer.convert_tokens_to_ids(key)
+                tokenized = tokenizer.tokenize(description)
+                print(tokenized)
+                tokenized_ids = tokenizer.convert_tokens_to_ids(tokenized)
+                new_embedding = model.get_input_embeddings().weight[tokenized_ids].mean(axis=0)
+                model.get_input_embeddings().weight[key_id, :] = new_embedding.clone().detach().requires_grad_(True)
+        # print(model.get_input_embeddings().weight[-2:, :])
 
     def create_model_config(self):
         if 't5' in self.args.backbone:
@@ -187,6 +208,8 @@ class ActorCritic(nn.Module):
             proxies=huggingface_proxies if self.args.proxy else None,
         )
         # tokenizer.add_tokens(['\n'] + [f'<{i+1}>' for i in range(20)])
+        # 添加新的token <SOI> <EOI> <SEP>
+        tokenizer.add_special_tokens({'additional_special_tokens': ['<SOI>', '<EOI>', '<SEP>']})
         tokenizer.pad_token = tokenizer.unk_token
         tokenizer.pad_token_id = tokenizer.unk_token_id
         self.model_config.pad_token_id = tokenizer.pad_token_id
