@@ -147,6 +147,7 @@ if __name__ == "__main__":
     parser.add_argument("--llama2_chat_template", action='store_true')
     parser.add_argument("--idx", action='store_true')
     parser.add_argument("--sample", action='store_true')
+    parser.add_argument("--user_control_symbol", action='store_true')
     parser.add_argument("--port", type=int, default=13579)
     args = parser.parse_args()
     args.is_main_process = True
@@ -155,8 +156,8 @@ if __name__ == "__main__":
     print(args)
     gpt = GPT(model_name=args.model_name)
     data = {
-        'category': load_pickle(args.data_path + 'category1.pickle'),
-        'metas': load_pickle(args.data_path + 'meta1.pickle'),
+        'category': load_pickle(args.data_path + 'category.pickle'),
+        'metas': load_pickle(args.data_path + 'metas.pickle'),
         'sequential': load_pickle(args.data_path + 'sequential.pickle'),
         'preference': load_pickle(args.data_path + 'preference.pickle'),
         'intention': load_pickle(args.data_path + 'intention.pickle'),

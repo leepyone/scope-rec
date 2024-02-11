@@ -119,6 +119,7 @@ model_path = {
     'beauty': 'saved/beauty.pth',
     'sub_movie': 'saved/sub_movie_10.pth',
     'steam': '/home/wangshuo/codes/InstructControllableRec_RLHF/SASRec/saved/steam.pth',
+    'toys': '/home/wangshuo/codes/InstructControllableRec_RLHF/SASRec/saved/toys.pth',
 }
 if __name__ == '__main__':
 

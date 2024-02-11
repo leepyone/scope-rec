@@ -266,6 +266,11 @@ def get_output_text(output_titles: list[str], eos_token='', idx=False, user_cont
         output_text = '\n '.join([f'{i+1}. {t}' for i, t in enumerate(output_titles)])
     return output_text + eos_token
 
+def get_ctrl_item(out_titles):
+    pattern = r"<SOI>\s*(.*?)\s*<EOI>"
+    item_list = re.findall(pattern, out_titles, re.MULTILINE)
+    return item_list
+
 def get_prefix(input_ids, control_symbol):
     ctrl_s, ctrl_e = control_symbol
     # 找到所有ctrl_s和ctrl_e的索引
@@ -274,8 +279,8 @@ def get_prefix(input_ids, control_symbol):
     ctrl_e_indices = (input_ids == ctrl_e).nonzero(as_tuple=True)[0]
 
     # 检查ctrl_s和ctrl_e的数量
-    if len(ctrl_s_indices) <= 2:
-        return False, []
+    # if len(ctrl_s_indices) <= 2:
+    #     return False, []
 
     # 从后向前找到第一个ctrl_e和ctrl_s的位置
     last_ctrl_e_index = ctrl_e_indices[-1].item() if len(ctrl_e_indices) > 0 else -1

@@ -1,7 +1,7 @@
-nohup accelerate launch --num_processes 4 --gpu_ids 1,0,2,5 --main_process_port 2026 train.py \
+nohup accelerate launch --num_processes 5 --gpu_ids 1,0,2,3,4 --main_process_port 2026 train.py \
 --seed 0 \
---data_path data/dataset/steam/ \
---output snap/0206-steam/ \
+--data_path data/dataset/toys/ \
+--output snap/0209-toys-ctrl-c/ \
 --backbone /home/wangshuo/weights/llama2/Llama-2-7b-hf-chat/ \
 --item_index title \
 --batch_size 1 \
@@ -19,10 +19,13 @@ nohup accelerate launch --num_processes 4 --gpu_ids 1,0,2,5 --main_process_port 
 --SFT_val_tasks SFTTestSeqRec \
 --backup_ip 0.0.0.0 \
 --val_epoch 5 \
---share_chat_gpt_ratio 0.5 \
+--share_chat_gpt_ratio 0.0 \
 --llama2_chat_template \
 --user_control_symbol \
---idx>snap/0206-steam/output.log 2>&1 &
+--lm_head \
+--SFT_load /home/wangshuo/codes/InstructControllableRec_RLHF/snap/0209-toys-ctrl-c/Epoch05_SFT.pth \
+--idx>snap/0209-toys-ctrl-c/output.log 2>&1 &
 
 # --SFT_load snap/ICR_SubMovie_Title64T_0_Llama7bChat_LCT_E40_CCR2_SCG2-0.5_IDX/Epoch07_SFT 
 # --FA2 \
+#--user_control_symbol \

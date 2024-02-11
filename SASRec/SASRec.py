@@ -132,4 +132,4 @@ import json
 # logger.info(set_color("test result on candidate", "yellow") + f": {test_result}")
 
 
-run_recbole(model='SASRec', dataset='steam', config_file_list=['sasrec.yaml'])
+run_recbole(model='SASRec', dataset='toys', config_file_list=['sasrec.yaml'])

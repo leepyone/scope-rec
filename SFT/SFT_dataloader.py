@@ -19,13 +19,8 @@ class SFTDataset(Dataset):
         self.mode = mode
         self.tokenizer = tokenizer
         # 根据不同的数据集需要调整对应sasrec的端口号
-        self.teacher_port = 2024 if 'steam' in args.data_path else 12620
+        self.teacher_port = 2024 if 'steam' in args.data_path else 2034
 
-        if args.user_control_symbol:
-            ctrl_symbols = ['<SOI>', '<EOI>']
-            self.ctrl_symbols = list(map(self.tokenizer.convert_tokens_to_ids, ctrl_symbols))
-            # 创建前缀树
-            self.create_item_prefix_tree()
         self.category2item = data['category']
         self.metas = data['metas']
         self.sequential = data['sequential']
@@ -33,7 +28,12 @@ class SFTDataset(Dataset):
         # self.intention = data['intention']
         self.share_chat_gpt = data['share_chat_gpt']
         self.ranking_candidate = data['ranking_candidate']
-        self.item_list = data['item_list']
+        if args.user_control_symbol:
+            self.item_list = data['item_list']
+            ctrl_symbols = ['<SOI>', '<EOI>']
+            self.ctrl_symbols = list(map(self.tokenizer.convert_tokens_to_ids, ctrl_symbols))
+            # 创建前缀树
+            self.create_item_prefix_tree()
         if self.args.llama2_chat_template:
             self.chat_gpt_conv = get_conversation_template("llama-2")
             self.chat_gpt_conv.set_system_message("You are a helpful, respectful and honest assistant.")
@@ -427,7 +427,8 @@ class SFTDataset(Dataset):
                     'target_category': random.choice(self.item2category[target_item]),
                 })
             else:
-                if random.random() > 0.5:
+                # 这里设置成正的 random.random()
+                if 1 > 0.5:
                     target_category = random.choice(self.item2category[target_item])
                     max_count = min(self.args.topk, len(self.category2item[target_category]))
                     intention_group, d = Intention_plus_group, '+'
@@ -458,7 +459,7 @@ class SFTDataset(Dataset):
                     'candidate_items': candidate_items
                 })
                 output_field_data.update({
-                    'item_list': get_output_text([self.get_item_index(_) for _ in output_items], '\n'+self.tokenizer.eos_token, self.args.idx)
+                    'item_list': get_output_text([self.get_item_index(_) for _ in output_items], '\n'+self.tokenizer.eos_token, self.args.idx, self.args.user_control_symbol)
                 })
         elif task == "SFTCategoryRate":
             target_category = self.datum_info[idx][1]

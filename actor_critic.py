@@ -12,6 +12,7 @@ from collections import deque, namedtuple
 from typing import List, Optional, Callable, Deque
 
 import torch
+import shutil
 from torch import nn
 import torch.nn.functional as F
 import bitsandbytes as bnb
@@ -68,7 +69,8 @@ class ActorCritic(nn.Module):
         self.model_config = self.create_model_config()
         self.tokenizer = self.create_tokenizer()
         self.model = self.create_model(device)
-        self.resize_init_embedding(self.model, self.tokenizer)
+        if args.user_control_symbol:
+            self.resize_init_embedding(self.model, self.tokenizer)
 
         self.actor_lora_scope = actor_lora_scope
         self.critic_lora_scope = critic_lora_scope
@@ -115,7 +117,8 @@ class ActorCritic(nn.Module):
         if self.args.train_stage in ['RLHF']:
             param_dict.update(self.critic_named_parameters)
         # Save embedding weights
-        param_dict.update({n: p for n, p in self.named_parameters() if "embed_" in n})
+        if self.args.user_control_symbol:
+            param_dict.update({n: p for n, p in self.named_parameters() if "embed_" in n})
         torch.save(param_dict, os.path.join(self.args.output, f"{name}_{self.args.train_stage}.pth"))
 
     def load_parameters(self, load_file):
@@ -208,8 +211,9 @@ class ActorCritic(nn.Module):
             proxies=huggingface_proxies if self.args.proxy else None,
         )
         # tokenizer.add_tokens(['\n'] + [f'<{i+1}>' for i in range(20)])
-        # 添加新的token <SOI> <EOI> <SEP>
-        tokenizer.add_special_tokens({'additional_special_tokens': ['<SOI>', '<EOI>', '<SEP>']})
+        if self.args.user_control_symbol:
+            # 添加新的token <SOI> <EOI> <SEP>
+            tokenizer.add_special_tokens({'additional_special_tokens': ['<SOI>', '<EOI>', '<SEP>']})
         tokenizer.pad_token = tokenizer.unk_token
         tokenizer.pad_token_id = tokenizer.unk_token_id
         self.model_config.pad_token_id = tokenizer.pad_token_id
@@ -278,6 +282,16 @@ class ActorCritic(nn.Module):
             bias="none",
         )
         return lora_config
+
+    def save_all_weight(self, name):
+        save_path = os.path.join(self.args.output, f"{name}_weight")
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        else:
+            shutil.rmtree(save_path)
+        self.model.save_pretrained(save_path)
+        self.tokenizer.save_pretrained(save_path)
+
 
     @property
     def actor_model(self):

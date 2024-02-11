@@ -60,12 +60,23 @@ PersonalCategoryRate_task_key = 'PersonalCategoryRate'
 
 SeqRec_group = {}
 
+# template = {
+#     'sys': "You are an expert recommender engine. ",
+#     'first_turn': ["You need to generate a recommendation list considering user's preference from historical interactions. <SOI> and <EOI> are two special control symbols used to mark the beginning and the end of an item, respectively. For example: <SOI> item <EOI>. Please enclose the output item with these two control symbols.",
+#                    "Ok, I will consider user's preference. "],
+#     'inst': "The historical interactions are provided as follows: {history}. " +
+#             "Please generate a recommendation list with {item_count} different items. <SEP>",
+#     'output': "{item_list}",
+#     'input_fields': ['history', 'item_count'],
+#     'output_fields': ['item_list'],
+#     'template_id': f"{SeqRec_task_key}-{len(SeqRec_group)}",
+# }
 template = {
     'sys': "You are an expert recommender engine. ",
-    'first_turn': ["You need to generate a recommendation list considering user's preference from historical interactions. <SOI> and <EOI> are two special control symbols used to mark the beginning and the end of an item, respectively. For example: <SOI> item <EOI>. Please enclose the output item with these two control symbols.",
+    'first_turn': ["You need to generate a recommendation list considering user's preference from historical interactions.",
                    "Ok, I will consider user's preference. "],
     'inst': "The historical interactions are provided as follows: {history}. " +
-            "Please generate a recommendation list with {item_count} different items. <SEP>",
+            "Please generate a recommendation list with {item_count} different items.",
     'output': "{item_list}",
     'input_fields': ['history', 'item_count'],
     'output_fields': ['item_list'],
@@ -573,9 +584,20 @@ TestPersonalCategoryRateEP_group[f"{PersonalCategoryRate_task_key}"] = SFTTempla
 
 
 ValSeqRec_group = {}
+# template = {
+#     'sys': "You are an expert recommender engine. ",
+#     'first_turn': ["You need to generate a recommendation list considering user's preference from historical interactions. <SOI> and <EOI> are two special control symbols used to mark the beginning and the end of an item, respectively. For example: <SOI> item <EOI>. Please enclose the output item with these two control symbols.",
+#                    "Ok, I will consider user's preference. "],
+#     'inst': "The historical interactions are provided as follows: {history}. " +
+#             "Please generate a recommendation list with {item_count} different items. ",
+#     'output': "{item_list}",
+#     'input_fields': ['history', 'item_count'],
+#     'output_fields': ['item_list'],
+#     'template_id': f"{SeqRec_task_key}-{len(ValSeqRec_group)}",
+# }
 template = {
     'sys': "You are an expert recommender engine. ",
-    'first_turn': ["You need to generate a recommendation list considering user's preference from historical interactions. <SOI> and <EOI> are two special control symbols used to mark the beginning and the end of an item, respectively. For example: <SOI> item <EOI>. Please enclose the output item with these two control symbols.",
+    'first_turn': ["You need to generate a recommendation list considering user's preference from historical interactions.",
                    "Ok, I will consider user's preference. "],
     'inst': "The historical interactions are provided as follows: {history}. " +
             "Please generate a recommendation list with {item_count} different items. ",
