@@ -18,6 +18,7 @@ def add_args_SFT(parser):
     parser.add_argument("--SFT_actor_lora_a", type=int, default=8)
     parser.add_argument('--user_control_symbol', action='store_true', help='是否添加控制符包裹item，例如，输出 <SOI>item<EOI>\n 2. <SOI>item2<EOI>')
     parser.add_argument('--use_CBS', action='store_true', help='推理的时候是否使用CBS')
+    parser.add_argument('--use_scope_mask', action='store_true', help='训练的时候是否使用scope_mask')
     return parser
 
 

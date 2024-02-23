@@ -19,7 +19,12 @@ class SFTDataset(Dataset):
         self.mode = mode
         self.tokenizer = tokenizer
         # 根据不同的数据集需要调整对应sasrec的端口号
-        self.teacher_port = 2024 if 'steam' in args.data_path else 2034
+        if 'steam' in args.data_path:
+            self.teacher_port = 2024
+        elif 'toys' in args.data_path:
+            self.teacher_port = 2034
+        else: # movies
+            self.teacher_port = 2044
 
         self.category2item = data['category']
         self.metas = data['metas']
@@ -34,6 +39,7 @@ class SFTDataset(Dataset):
             self.ctrl_symbols = list(map(self.tokenizer.convert_tokens_to_ids, ctrl_symbols))
             # 创建前缀树
             self.create_item_prefix_tree()
+            self.vocab_size = len(self.tokenizer)
         if self.args.llama2_chat_template:
             self.chat_gpt_conv = get_conversation_template("llama-2")
             self.chat_gpt_conv.set_system_message("You are a helpful, respectful and honest assistant.")
@@ -79,6 +85,58 @@ class SFTDataset(Dataset):
             input_ids_append.append(new_list)
 
         self.item_prefix_tree = Trie(input_ids_append)
+
+    # 根据input ids 获得scope_mask矩阵
+    def get_scope_mask(self, labels):
+        # return None
+        scope_mask = []
+        batch_size = labels.size()[0]
+        step_size = labels.size()[1]
+
+        scope_mask = torch.zeros(batch_size, step_size, self.vocab_size, dtype=torch.bool)
+        # 找出所有控制符号的位置
+        start_positions = (labels == self.ctrl_symbols[0]).nonzero()
+        end_positions = (labels == self.ctrl_symbols[1]).nonzero()
+        # 如果是只训练response部分的情况下就不用考虑这个了
+        # separator_positions = (labels == self.separator_symbol).nonzero()
+        # 存在一个控制符 self.separator_symbol,找到这个控制符的位置
+        # 对start_positions，end_positions 进行过滤，和在self.separator_symbol控制符之前的位置过滤掉
+
+        # 对于每个batch，处理有效区间
+
+        for idx, start_pos in enumerate(start_positions):
+            batch_idx, start_idx = start_pos[0], start_pos[1]
+
+            # 检查是否是separator控制符之后的区间
+            # separator_pos = separator_positions[batch_idx]
+            # separator_batch_idx, separator_idx = separator_pos[0], separator_pos[1]
+
+            # if start_idx < separator_idx:
+            #     continue
+
+            # 使用相同的索引来获取end_positions中的对应位置
+            end_pos = end_positions[idx]
+            end_batch_idx, end_idx = end_pos[0], end_pos[1]
+
+            # 确保结束位置与开始位置在同一个batch中
+            # assert batch_idx == separator_batch_idx
+
+            # 确保结束位置与开始位置在同一个batch中
+            assert batch_idx == end_batch_idx
+
+            # 检查结束位置是否在开始位置之后
+            if end_idx <= start_idx:
+                raise ValueError("End index must be greater than start index")
+
+            # 对于有效区间中的每个step，更新scope_mask
+            for step_idx in range(start_idx + 1, end_idx):
+                scope_list = self.item_prefix_tree.next_tokens(labels[batch_idx, start_idx:step_idx].tolist())
+                scope_mask[batch_idx, step_idx, :] = True
+                scope_mask[batch_idx, step_idx, scope_list] = False
+
+        scope_mask = scope_mask.to(labels.device)
+
+        return scope_mask
 
     def find_maximum_category(self, item_list, target_item):
         category_count = {c: 0 for c in self.category2item if target_item not in self.category2item[c]}
@@ -143,6 +201,10 @@ class SFTDataset(Dataset):
                 self.complete_datum_info = [self.complete_datum_info[idx] for idx in datum_info_index][::-1]
                 save_pickle(self.complete_datum_info, self.complete_datum_info_path)
 
+        # 在测试的情况下只用测试前一万个用户
+        # if self.mode == 'test':
+        #     cut_num = min(10000, len(self.datum_info))
+        #     self.datum_info = self.datum_info[:cut_num]
         if self.mode == 'train':
             self.shuffle()
 
@@ -459,7 +521,7 @@ class SFTDataset(Dataset):
                     'candidate_items': candidate_items
                 })
                 output_field_data.update({
-                    'item_list': get_output_text([self.get_item_index(_) for _ in output_items], '\n'+self.tokenizer.eos_token, self.args.idx, self.args.user_control_symbol)
+                    'item_list': get_output_text([self.get_item_index(_) for _ in output_items], '\n'+self.tokenizer.eos_token, self.args.idx, self.args.user_control_symbol,self.args.use_scope_mask) # method3的情况下只有rec任务有控制符，商品搜索任务没有控制符
                 })
         elif task == "SFTCategoryRate":
             target_category = self.datum_info[idx][1]

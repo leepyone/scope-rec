@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import re
 from prompt import *
+import glob
 
 huggingface_proxies = {
     'http': '172.31.225.67:12621',
@@ -257,14 +258,24 @@ def get_history_text(output_titles: list[str]):
     return history_text
 
 
-def get_output_text(output_titles: list[str], eos_token='', idx=False, user_control_symbol=False):
-    if user_control_symbol:
+def get_output_text(output_titles: list[str], eos_token='', idx=False, user_control_symbol=False, use_scope_mask = False):
+    if user_control_symbol and not use_scope_mask:
         output_titles = [f'<SOI>{t}<EOI>' for t in output_titles]
     if not idx:
         output_text = '\n '.join(output_titles)
     else:
         output_text = '\n '.join([f'{i+1}. {t}' for i, t in enumerate(output_titles)])
     return output_text + eos_token
+
+def merge_result(pattern):
+    files = glob.glob(pattern)
+    print(f"检索到{len(files)}分块文件，分别是{files}")
+    result_all = []
+    for file in files:
+        data =load_pickle(file)
+        result_all.extend((data))
+    print(f"合并的记录条数是{len(result_all)}")
+    return result_all
 
 def get_ctrl_item(out_titles):
     pattern = r"<SOI>\s*(.*?)\s*<EOI>"

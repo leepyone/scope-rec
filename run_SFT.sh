@@ -1,7 +1,7 @@
-nohup accelerate launch --num_processes 5 --gpu_ids 1,0,2,3,4 --main_process_port 2026 train.py \
+nohup accelerate launch --num_processes 4 --gpu_ids 0,5,6,8 --main_process_port 2036 train.py \
 --seed 0 \
 --data_path data/dataset/toys/ \
---output snap/0209-toys-ctrl-c/ \
+--output snap/0223-toys-scope-mask/ \
 --backbone /home/wangshuo/weights/llama2/Llama-2-7b-hf-chat/ \
 --item_index title \
 --batch_size 1 \
@@ -10,7 +10,7 @@ nohup accelerate launch --num_processes 5 --gpu_ids 1,0,2,3,4 --main_process_por
 --epoch 40 \
 --gen_max_length 512 \
 --lr 0.0006 \
---gradient_accumulation_steps 12 \
+--gradient_accumulation_steps 16 \
 --train_stage SFT \
 --SFT_actor_lora_r 16 \
 --warmup_ratio 0.0125 \
@@ -23,8 +23,8 @@ nohup accelerate launch --num_processes 5 --gpu_ids 1,0,2,3,4 --main_process_por
 --llama2_chat_template \
 --user_control_symbol \
 --lm_head \
---SFT_load /home/wangshuo/codes/InstructControllableRec_RLHF/snap/0209-toys-ctrl-c/Epoch05_SFT.pth \
---idx>snap/0209-toys-ctrl-c/output.log 2>&1 &
+--use_scope_mask \
+--idx>snap/0223-toys-scope-mask/output.log 2>&1 &
 
 # --SFT_load snap/ICR_SubMovie_Title64T_0_Llama7bChat_LCT_E40_CCR2_SCG2-0.5_IDX/Epoch07_SFT 
 # --FA2 \

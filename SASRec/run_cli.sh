@@ -1,3 +1,3 @@
 nohup python cil.py \
---dataset toys \
---port 2034 >./server_log/toys_log.txt 2>&1 &
+--dataset movies \
+--port 2044 >./server_log/movies_log.txt 2>&1 &
