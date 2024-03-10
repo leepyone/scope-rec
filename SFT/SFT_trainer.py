@@ -55,7 +55,7 @@ class SFTTrainer(Trainer):
             # }
             # 'preference': load_pickle(args.data_path + 'preference.pickle'),
             # 'intention': load_pickle(args.data_path + 'intention.pickle'),
-            'share_chat_gpt': load_pickle('/home/wangshuo/codes/InstructControllableRec_RLHF/data/dataset/share_chat_gpt2.pickle'),
+            'share_chat_gpt': load_pickle('/home/wangshuo/codes/scope-rec/data/dataset/share_chat_gpt2.pickle'),
             'ranking_candidate': load_pickle(args.data_path + 'ranking_candidate.pickle'),
             'item_list': load_pickle(args.data_path + 'items.pickle'),
         }

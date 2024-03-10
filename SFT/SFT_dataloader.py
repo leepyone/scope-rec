@@ -104,8 +104,8 @@ class SFTDataset(Dataset):
 
         # 对于每个batch，处理有效区间
 
-        for idx, start_pos in enumerate(start_positions):
-            batch_idx, start_idx = start_pos[0], start_pos[1]
+        for idx, end_pos in enumerate(end_positions):
+            batch_idx, end_idx = end_pos[0], end_pos[1]
 
             # 检查是否是separator控制符之后的区间
             # separator_pos = separator_positions[batch_idx]
@@ -114,15 +114,15 @@ class SFTDataset(Dataset):
             # if start_idx < separator_idx:
             #     continue
 
-            # 使用相同的索引来获取end_positions中的对应位置
-            end_pos = end_positions[idx]
-            end_batch_idx, end_idx = end_pos[0], end_pos[1]
+            # 使用相同的索引来获取start_positions中的对应位置
+            start_pos = start_positions[idx]
+            start_batch_idx, start_idx = start_pos[0], start_pos[1]
 
             # 确保结束位置与开始位置在同一个batch中
             # assert batch_idx == separator_batch_idx
 
-            # 确保结束位置与开始位置在同一个batch中
-            assert batch_idx == end_batch_idx
+            # 确保开始位置与开始位置在同一个batch中
+            assert batch_idx == start_batch_idx
 
             # 检查结束位置是否在开始位置之后
             if end_idx <= start_idx:
@@ -158,10 +158,10 @@ class SFTDataset(Dataset):
         val_num = 320
         val_task_num = 0
         for task, num in self.task_num.items():
-            if task in ["SFTSeqRec", "SFTPersonalControlRec", "SFTPersonalCategoryRate"]:
+            if task in ["SFTSeqRec", "SFTSeqRec-domain", "SFTPersonalControlRec", "SFTPersonalCategoryRate"]:
                 for _ in range(num):
                     self.datum_info += [[task, u] for u in self.sequential]
-            elif task in ["SFTControlRec", "SFTControlRec1"]:
+            elif task in ["SFTControlRec", "SFTControlRec-domain", "SFTControlRec1"]:
                 for _ in range(num):
                     self.datum_info += [[task, i] for i in self.metas if self.item2category.get(i)]
             elif task == "SFTCategoryRate":
@@ -175,7 +175,7 @@ class SFTDataset(Dataset):
                 for _ in range(num):
                     self.datum_info += [[task, u, self.intention[idx]] for idx, u in enumerate(self.sequential) if idx < 768]
 
-            elif task in ["SFTTestSeqRec", "SFTTestSeqRanking", "SFT+TestPersonalControlRec", "SFT-TestPersonalControlRec",
+            elif task in ["SFTTestSeqRec", "SFTTestSeqRec-domain", "SFTTestSeqRanking", "SFT+TestPersonalControlRec", "SFT-TestPersonalControlRec",
                           "SFTTestItemCount"] or task.startswith("SFTTestPersonalCategoryRate"):
                 for _ in range(num):
                     if self.mode == 'test':
@@ -246,12 +246,12 @@ class SFTDataset(Dataset):
 
     def get_output_item_list(self, task, user=None, sub_sequential=None, target_item=None, target_category=None, direction=None, item_count=None, category_item_count=None, has_candidate=False):
         output_items, candidate_items = [], []
-        if task in ['SFTSeqRec']:
+        if task in ['SFTSeqRec','SFTSeqRec-domain']:
             output_items = get_item_list(self.args.backup_ip, [user], [sub_sequential], item_count, port=self.teacher_port)['inference'][0]
             if target_item in output_items:
                 output_items.remove(target_item)
             output_items = ([target_item] + output_items)[:item_count]
-        elif task in ["SFTControlRec", "SFTControlRec1"]:
+        elif task in ["SFTControlRec", "SFTControlRec-domain", "SFTControlRec1"]:
             if direction == '+':
                 output_items = copy.deepcopy(self.category2item[target_category])
             else:
@@ -293,7 +293,7 @@ class SFTDataset(Dataset):
         template_id = random.choice(list(self.task_template[task].keys()))
         template_selected = self.task_template[task][template_id]
         input_field_data, output_field_data = {}, {}
-        if task in ["SFTSeqRec", "SFTTestSeqRec", "SFTSeqRanking", "SFTTestSeqRanking", "SFTPersonalControlRec",
+        if task in ["SFTSeqRec", "SFTSeqRec-domain", "SFTTestSeqRec", "SFTTestSeqRec-domain", "SFTSeqRanking", "SFTTestSeqRanking", "SFTPersonalControlRec",
                     "SFT+TestPersonalControlRec", "SFT-TestPersonalControlRec", "SFTPersonalCategoryRate",
                     "SFTTestItemCount"] or task.startswith("SFTTestPersonalCategoryRate"):
             user = self.datum_info[idx][1]
@@ -305,7 +305,7 @@ class SFTDataset(Dataset):
                 'history': get_history_text([f"'{self.get_item_index(_)}'" for _ in sub_sequential]),
             })
 
-            if task in ["SFTSeqRec"]:
+            if task in ["SFTSeqRec","SFTSeqRec-domain"]:
                 item_count = random.choice(range(self.args.topk))+1
                 # temp = get_item_list(self.args.backup_ip, [user], [sub_sequential], item_count)['inference'][0]
                 # if target_item in temp:
@@ -314,30 +314,27 @@ class SFTDataset(Dataset):
                 output_items, candidate_items = self.get_output_item_list(task, user=user, sub_sequential=sub_sequential,
                                                                           target_item=target_item, item_count=item_count,
                                                                           has_candidate='candidate_titles' in template_selected.input_fields)
-                input_field_data.update({
+                input_field_dict = {
                     'target_category': self.item2category.get(target_item)[-1],
                     'item_count': item_count,
                     'candidate_titles': ', '.join([f"'{self.get_item_index(_)}'" for _ in candidate_items]),
                     'candidate_items': candidate_items
-                })
+                }
+                if task == "SFTSeqRec-domain": # 如果使用domain，就获取数据集的名称
+                    input_field_dict['domain'] = self.args.domain
+                input_field_data.update(input_field_dict)
                 output_field_data.update({
                     'item_list': get_output_text([self.get_item_index(_) for _ in output_items], '\n'+self.tokenizer.eos_token, self.args.idx,self.args.user_control_symbol)
                 })
-            # if task in ['SFTValSeqRec']:
-            #     item_count = 1
-            #     input_field_data.update({
-            #         'target_category': self.item2category.get(target_item)[-1],
-            #         'item_count': item_count
-            #     })
-            #     output_field_data.update({
-            #         'item_list': get_output_text([self.get_item_index(target_item)], '\n'+self.tokenizer.eos_token, self.args.idx)
-            #     })
-            elif task in ["SFTTestSeqRec"]:
+            elif task in ["SFTTestSeqRec","SFTTestSeqRec-domain"]:
                 item_count = self.args.topk
-                input_field_data.update({
+                input_field_dict = {
                     'target_category': self.item2category.get(target_item)[-1],
                     'item_count': item_count
-                })
+                }
+                if task == "SFTTestSeqRec-domain":
+                    input_field_dict['domain'] = self.args.domain
+                input_field_data.update(input_field_dict)
                 output_field_data.update({
                     'item_list': get_output_text([self.get_item_index(target_item)])
                 })
@@ -478,7 +475,7 @@ class SFTDataset(Dataset):
                     'item_list': ''
                 })
 
-        elif task in ["SFTControlRec", "SFTControlRec1"]:
+        elif task in ["SFTControlRec","SFTControlRec-domain", "SFTControlRec1"]:
             target_item = self.datum_info[idx][1]
             if 'reverse' in template_id:
                 input_field_data.update({
@@ -514,12 +511,15 @@ class SFTDataset(Dataset):
                 input_field_data.update({'target_category': target_category})
                 intention_template_key = random.choice(list(intention_group.keys()))
                 intention = intention_group[intention_template_key].get_input_text(input_field_data)
-                input_field_data.update({
+                input_field_dict = {
                     'synthetic_intention': intention,
                     'item_count': item_count,
                     'candidate_titles': ', '.join([f"'{self.get_item_index(_)}'" for _ in candidate_items]),
                     'candidate_items': candidate_items
-                })
+                }
+                if task == "SFTControlRec-domain":
+                    input_field_dict['domain'] = self.args.domain
+                input_field_data.update(input_field_dict)
                 output_field_data.update({
                     'item_list': get_output_text([self.get_item_index(_) for _ in output_items], '\n'+self.tokenizer.eos_token, self.args.idx, self.args.user_control_symbol,self.args.use_scope_mask) # method3的情况下只有rec任务有控制符，商品搜索任务没有控制符
                 })
@@ -658,7 +658,9 @@ class SFTDataset(Dataset):
 
 Train_task_group_mapping = {
     "SFTSeqRec": SeqRec_group,
+    "SFTSeqRec-domain": SeqRec_domain_group,
     "SFTControlRec": ControlRec_group,
+    "SFTControlRec-domain":ControlRec_domain_group,
     "SFTControlRec1": ControlRec1_group,
     "SFTPersonalControlRec": PersonalControlRec_group,
     "SFTCategoryRate": CategoryRate_group,
@@ -668,6 +670,7 @@ Train_task_group_mapping = {
 
 Val_task_group_mapping = {
     "SFTTestSeqRec": ValSeqRec_group,
+    "SFTTestSeqRec-domain": ValSeqRec_domain_group,
     "SFTTestSeqRanking": ValSeqRanking_group,
     # "SFTValControlRec": ValControlRec_group,
     # "SFTValPersonalControlRec": ValPersonalControlRec_group,
@@ -680,6 +683,7 @@ Val_task_group_mapping = {
 
 Test_task_group_mapping = {
     "SFTTestSeqRec": ValSeqRec_group,
+    "SFTTestSeqRec-domain": ValSeqRec_domain_group,
     "SFTTestSeqRanking": ValSeqRanking_group,
     "SFT+TestPersonalControlRec": ValPersonalControlRec_group,
     "SFT-TestPersonalControlRec": ValPersonalControlRec_group,

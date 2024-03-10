@@ -12,7 +12,7 @@ class SFTTemplate:
 
         for _ in input_fields:
             for __ in _.split('/'):
-                assert __ in ['item', 'item_count', 'history', 'preference', 'synthetic_intention', 'target_category', 'category_proportion', 'category_count', 'candidate_titles']
+                assert __ in ['item', 'item_count', 'history', 'preference', 'synthetic_intention', 'target_category', 'category_proportion', 'category_count', 'candidate_titles', 'domain']
         for _ in output_fields:
             for __ in _.split('/'):
                 assert __ in ['item', 'item_list', 'target_category']
@@ -34,6 +34,8 @@ class SFTTemplate:
         if not llama2_chat_template:
             input_text = f'{self.sys}{self.first_turn[0]}{instruction}'
         else:
+            if "domain" in input_args:
+                self.conv.set_system_message(self.sys.format_map(input_args))
             self.conv.messages[-2][1] = instruction
             input_text = self.conv.get_prompt()
         return input_text
@@ -45,8 +47,10 @@ class SFTTemplate:
 
 
 SeqRec_task_key = 'SeqRec'
+SeqRec_domain_task_key = 'SeqRec-domain'
 SeqRanking_task_key = 'SeqRanking'
 ControlRec_task_key = 'ControlRec'
+ControlRec_domain_task_key = 'ControlRec-domain'
 PersonalControlRec_task_key = 'PersonalControlRec'
 CategoryRate_task_key = 'CategoryRate'
 PersonalCategoryRate_task_key = 'PersonalCategoryRate'
@@ -86,7 +90,7 @@ SeqRec_group[f"{SeqRec_task_key}-{len(SeqRec_group)}"] = SFTTemplate(**template)
 
 template = {
     'sys': "You are an expert recommender engine. ",
-    'first_turn': ["You need to select a recommendation list considering user's preference from historical interactions. ",
+    'first_turn': ["You need to select a recommendation list considering user's preference from historical interactions.",
                    "Ok, I will do it considering user's preference."],
     'inst': "The historical interactions are provided as follows: {history}. " +
             "The candidate items are: {candidate_titles}. " +
@@ -98,6 +102,40 @@ template = {
 }
 SeqRec_group[f"{SeqRec_task_key}-{len(SeqRec_group)}"] = SFTTemplate(**template)
 
+################################################################################################################
+#                                                                                                              #
+#                                sequential-domain recommendation templates                                           #
+#                                                                                                              #
+################################################################################################################
+
+SeqRec_domain_group = {}
+
+template = {
+    'sys': "You are an expert recommender engine specializing in {domain} products. ",
+    'first_turn': ["You need to generate a recommendation list considering user's preference from historical interactions.",
+                   "Ok, I will consider user's preference. "],
+    'inst': "The historical interactions are provided as follows: {history}. " +
+            "Please generate a recommendation list with {item_count} different items. Your recommendations should be exclusively focused on {domain} products. ",
+    'output': "{item_list}",
+    'input_fields': ['history', 'item_count'],
+    'output_fields': ['item_list'],
+    'template_id': f"{SeqRec_domain_task_key}-{len(SeqRec_domain_group)}",
+}
+SeqRec_domain_group[f"{SeqRec_domain_task_key}-{len(SeqRec_domain_group)}"] = SFTTemplate(**template)
+
+template = {
+    'sys': "You are an expert recommender engine specializing in {domain} products. ",
+    'first_turn': ["You need to select a recommendation list considering user's preference from historical interactions. ",
+                   "Ok, I will do it considering user's preference."],
+    'inst': "The historical interactions are provided as follows: {history}. " +
+            "The candidate items are: {candidate_titles}. " +
+            "Please select a recommendation list with {item_count} different items from candidate items. Your recommendations should be exclusively focused on {domain} products. ",
+    'output': "{item_list}",
+    'input_fields': ['history', 'item_count', 'candidate_titles'],
+    'output_fields': ['item_list'],
+    'template_id': f"{SeqRec_domain_task_key}-{len(SeqRec_domain_group)}",
+}
+SeqRec_domain_group[f"{SeqRec_domain_task_key}-{len(SeqRec_domain_group)}"] = SFTTemplate(**template)
 
 ################################################################################################################
 #                                                                                                              #
@@ -176,6 +214,45 @@ template = {
     'template_id': f"{ControlRec_task_key}-{len(ControlRec1_group)}",
 }
 ControlRec1_group[f"{ControlRec_task_key}-reverse"] = SFTTemplate(**template)
+
+################################################################################################################
+#                                                                                                              #
+#                                          control rec-domain templates                                        #
+#                                                                                                              #
+################################################################################################################
+
+
+ControlRec_domain_group = {}
+
+template = {
+    'sys': "You are an expert recommender engine specializing in {domain} products.. ",
+    'first_turn': ["You need to generate a recommendation list complying user's intention. ",
+                   "Ok, I will do it considering user's intention. "],
+    'inst': "Here is user's intention: {synthetic_intention}. " +
+            "Please generate a recommendation list with {item_count} different items. Your recommendations should be exclusively focused on {domain} products. ",
+    'output': "{item_list}",
+    'input_fields': ['synthetic_intention', 'item_count'],
+    'output_fields': ['item_list'],
+    'template_id': f"{ControlRec_domain_task_key}-{len(ControlRec_domain_group)}",
+}
+ControlRec_domain_group[f"{ControlRec_domain_task_key}-{len(ControlRec_domain_group)}"] = SFTTemplate(**template)
+
+template = {
+    'sys': "You are an expert recommender engine specializing in {domain} products.. ",
+    'first_turn': ["You need to select a recommendation list complying user's intention from candidate items. ",
+                   "Ok, I will do it considering user's intention and candidate items. "],
+    'inst': "Here is user's intention: {synthetic_intention}. " +
+            "The candidate items are: {candidate_titles}. " +
+            "Please select a recommendation list with {item_count} different items from candidate items. Your recommendations should be exclusively focused on {domain} products. ",
+    'output': "{item_list}",
+    'input_fields': ['synthetic_intention', 'item_count', 'candidate_titles'],
+    'output_fields': ['item_list'],
+    'template_id': f"{ControlRec_domain_task_key}-{len(ControlRec_domain_group)}",
+}
+ControlRec_domain_group[f"{ControlRec_domain_task_key}-{len(ControlRec_domain_group)}"] = SFTTemplate(**template)
+
+
+
 
 ################################################################################################################
 #                                                                                                              #
@@ -584,17 +661,6 @@ TestPersonalCategoryRateEP_group[f"{PersonalCategoryRate_task_key}"] = SFTTempla
 
 
 ValSeqRec_group = {}
-# template = {
-#     'sys': "You are an expert recommender engine. ",
-#     'first_turn': ["You need to generate a recommendation list considering user's preference from historical interactions. <SOI> and <EOI> are two special control symbols used to mark the beginning and the end of an item, respectively. For example: <SOI> item <EOI>. Please enclose the output item with these two control symbols.",
-#                    "Ok, I will consider user's preference. "],
-#     'inst': "The historical interactions are provided as follows: {history}. " +
-#             "Please generate a recommendation list with {item_count} different items. ",
-#     'output': "{item_list}",
-#     'input_fields': ['history', 'item_count'],
-#     'output_fields': ['item_list'],
-#     'template_id': f"{SeqRec_task_key}-{len(ValSeqRec_group)}",
-# }
 template = {
     'sys': "You are an expert recommender engine. ",
     'first_turn': ["You need to generate a recommendation list considering user's preference from historical interactions.",
@@ -607,6 +673,20 @@ template = {
     'template_id': f"{SeqRec_task_key}-{len(ValSeqRec_group)}",
 }
 ValSeqRec_group[f"{SeqRec_task_key}-{len(ValSeqRec_group)}"] = SFTTemplate(**template)
+
+ValSeqRec_domain_group = {}
+template = {
+    'sys': "You are an expert recommender engine specializing in {domain} products. ",
+    'first_turn': ["You need to generate a recommendation list considering user's preference from historical interactions.",
+                   "Ok, I will consider user's preference. "],
+    'inst': "The historical interactions are provided as follows: {history}. " +
+            "Please generate a recommendation list with {item_count} different items. Your recommendations should be exclusively focused on {domain} products.",
+    'output': "{item_list}",
+    'input_fields': ['history', 'item_count'],
+    'output_fields': ['item_list'],
+    'template_id': f"{SeqRec_domain_task_key}-{len(ValSeqRec_domain_group)}",
+}
+ValSeqRec_domain_group[f"{SeqRec_domain_task_key}-{len(ValSeqRec_domain_group)}"] = SFTTemplate(**template)
 
 ValSeqRanking_group = {}
 template = {

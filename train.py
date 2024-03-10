@@ -2,7 +2,7 @@ import random
 import sys
 import time
 import os 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 import numpy as np
 import torch
 import transformers

@@ -11,14 +11,15 @@ def is_interactive():
 def add_args_SFT(parser):
     parser.add_argument('--share_chat_gpt_ratio', type=float, default=0.0, help='shareGPT语料占比')
     parser.add_argument("--SFT_load", type=str, default=None, help='Load the SFT model (usually the fine-tuned model).')
-    parser.add_argument('--SFT_train_tasks', type=str, default='', help='SFTSeqRec,SFTControlRec,SFTPersonalControlRec,SFTPersonalCategoryRate,SFTCategoryRate')
-    parser.add_argument('--SFT_val_tasks', type=str, default='', help='SFTTestSeqRec,SFTTestSeqRanking,SFT+TestPersonalControlRec,SFT-TestPersonalControlRec,SFTTestPersonalCategoryRate,SFTTestItemCount')
-    parser.add_argument('--SFT_test_task', type=str, default='', help='in {SFTTestSeqRec, SFTTestRanking, SFT+TestPersonalControlRec, SFT-TestPersonalControlRec, SFTTestPersonalCategoryRate_xx%, SFTTestItemCount}')
+    parser.add_argument('--SFT_train_tasks', type=str, default='', help='SFTSeqRec, SFTSeqRec-domain, SFTControlRec,SFTPersonalControlRec,SFTPersonalCategoryRate,SFTCategoryRate')
+    parser.add_argument('--SFT_val_tasks', type=str, default='', help='SFTTestSeqRec, SFTTestSeqRec-domain, SFTTestSeqRanking,SFT+TestPersonalControlRec,SFT-TestPersonalControlRec,SFTTestPersonalCategoryRate,SFTTestItemCount')
+    parser.add_argument('--SFT_test_task', type=str, default='', help='in {SFTTestSeqRec, SFTTestSeqRec-domain,SFTTestRanking, SFT+TestPersonalControlRec, SFT-TestPersonalControlRec, SFTTestPersonalCategoryRate_xx%, SFTTestItemCount}')
     parser.add_argument("--SFT_actor_lora_r", type=int, default=16)
     parser.add_argument("--SFT_actor_lora_a", type=int, default=8)
     parser.add_argument('--user_control_symbol', action='store_true', help='是否添加控制符包裹item，例如，输出 <SOI>item<EOI>\n 2. <SOI>item2<EOI>')
     parser.add_argument('--use_CBS', action='store_true', help='推理的时候是否使用CBS')
     parser.add_argument('--use_scope_mask', action='store_true', help='训练的时候是否使用scope_mask')
+    parser.add_argument('--domain', type=str, default='steam', help='确定使用的domain信息')
     return parser
 
 

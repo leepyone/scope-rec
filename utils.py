@@ -68,7 +68,14 @@ def save_pickle(data, filename):
 def side_tokenizer(text: list[str] or list[list[str]], padding_side, tokenizer, **kwargs):
     tokenizer.padding_side = padding_side
     tokenizer.truncation_side = padding_side
-    return tokenizer.batch_encode_plus(text, **kwargs)
+    tokenizer_res = tokenizer.batch_encode_plus(text, **kwargs)
+    if padding_side == 'right': # 说明是处理output data
+        input_ids = tokenizer_res['input_ids']
+        for i,input_id in enumerate(input_ids):
+            if input_id[-1] != 2 and input_id[-1] != -100: #既不是终止符又不是填充符
+                input_ids[i][-1] = 2
+        tokenizer_res['input_ids'] = input_ids
+    return tokenizer_res
 
 
 def get_item_list(ip, users, sub_sequential, k, candidate_item_list=None, target_category=None, port=2024):
