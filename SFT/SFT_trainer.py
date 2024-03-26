@@ -25,6 +25,7 @@ from accelerate.state import AcceleratorState
 from accelerate.utils import ProjectConfiguration, set_seed
 from huggingface_hub import create_repo, upload_folder
 from accelerate.utils import GradientAccumulationPlugin
+from CrossEntropyLoss import CrossEntropyLoss_e
 
 
 class SFTTrainer(Trainer):
@@ -60,6 +61,7 @@ class SFTTrainer(Trainer):
             'item_list': load_pickle(args.data_path + 'items.pickle'),
         }
         self.sft_loss_fct = CrossEntropyLoss(reduction='none')
+        self.sft_loss_e = CrossEntropyLoss_e()
         if self.args.lower:
             for _ in self.data['metas']:
                 self.data['metas'][_]['title'] = self.data['metas'][_]['title'].lower().strip()
@@ -69,16 +71,63 @@ class SFTTrainer(Trainer):
     def SFT_Loss(self, logits, labels, input_data=None,task_list=None):
         shift_logits = logits[..., :-1, :].contiguous()
         shift_labels = labels[..., 1:].contiguous()
-        # todo 这里需要加上scope_mask 来掩盖掉部分的
-        if self.args.use_scope_mask and task_list[0] == 'SFTSeqRec': # 这里考虑到task是基于batch的大小是1的情况，如果不是要进行调整
-            scope_mask = self.get_scope_mask(input_data['input_ids'])
+        if self.args.use_scope_mask and task_list[0] == 'SFTSeqRec':
+            scope_mask = self.get_scope_mask(input_data['input_ids']) # 查询对应的scope-mask
             neg_inf = float('-inf')
             shift_scope_mask = scope_mask[..., 1:, :].contiguous()
-            shift_logits[shift_scope_mask] = neg_inf
+            shift_logits[shift_scope_mask] = neg_inf # 将超出scope-mask 之外的logits设置成负无穷
+        loss = self.sft_loss_fct(shift_logits.view(-1, self.actor_critic.model_config.vocab_size), shift_labels.view(-1)) #计算交叉熵损失函数
+        loss = loss.view(labels.shape[0], -1)
+        loss = loss.sum(dim=1) / (shift_labels != -100).sum(dim=1)  # [bs]
+        return loss
+
+    def SFT_loss_edit(self, logits, labels, input_data=None,task_list=None):
+        shift_logits = logits[..., :-1, :].contiguous()
+        shift_labels = labels[..., 1:].contiguous()
+        if self.args.use_scope_mask and task_list[0] == 'SFTSeqRec':
+            scope_mask = self.get_scope_mask(input_data['input_ids'])  # 查询对应的scope-mask
+            neg_inf = float('-inf')
+            shift_scope_mask = scope_mask[..., 1:, :].contiguous()
+            shift_logits[shift_scope_mask] = neg_inf  # 将超出scope-mask 之外的logits设置成负无穷
+            loss = self.sft_loss_e(shift_logits.view(-1, self.actor_critic.model_config.vocab_size), shift_labels.view(-1))
+        else:
+            loss = self.sft_loss_fct(shift_logits.view(-1, self.actor_critic.model_config.vocab_size), shift_labels.view(-1))  # 计算交叉熵损失函数
+            loss = loss.view(labels.shape[0], -1)
+            loss = loss.sum(dim=1) / (shift_labels != -100).sum(dim=1)  # [bs]
+
+        return loss
+
+
+    def SFT_LF_Loss(self, logits, labels, input_data=None,task_list=None):# 这里考虑到task是基于batch的大小是1的情况，如果不是要进行调整
+        shift_logits = logits[..., :-1, :].contiguous()
+        shift_labels = labels[..., 1:].contiguous()
+
+        start_positions = (shift_labels == 32002).nonzero(as_tuple=True)[0]
+        end_positions = (shift_labels == 32000).nonzero(as_tuple=True)[0]
+
+        # 创建全为False的掩码，长度与labels相同
+        mask = torch.zeros_like(shift_labels, dtype=torch.bool)
+
+        # 对每一对开始和结束位置，更新掩码以标记为True, 先不包括控制符
+        for start, end in zip(start_positions, end_positions):
+            mask[start+1:end] = True
+
+        # 使用掩码分割logits为两部分
+        shift_logits1 = logits[mask]
+        shift_logits2 = logits[~mask]
+
+        # 同理，分割labels
+        shift_labels1 = labels[mask]
+        shift_labels2 = labels[~mask]
+
+        # 两个损失函数 交叉熵损失函数和 focal loss
+        loss1 = CrossEntropyLoss(reduction='none')
+
         loss = self.sft_loss_fct(shift_logits.view(-1, self.actor_critic.model_config.vocab_size), shift_labels.view(-1))
         loss = loss.view(labels.shape[0], -1)
         loss = loss.sum(dim=1) / (shift_labels != -100).sum(dim=1)  # [bs]
         return loss
+
 
     def SFT_train(self):
         TaskTemplate = {_: Train_task_group_mapping[_] for _ in self.args.SFT_train_tasks.split(',')}
@@ -130,7 +179,7 @@ class SFTTrainer(Trainer):
                         print(input_data['input_ids'][0])
                     labels = batch['complete_label_ids']
                     results = warp_actor_critic.forward(scope='actor', **input_data)
-                    loss = self.SFT_Loss(results.logits, labels,input_data,batch['task'])
+                    loss = self.SFT_Loss(results.logits, labels, input_data, batch['task'])
 
                     for idx, task in enumerate(batch['task']):
                         task_loss[task] += (float(loss[idx]))

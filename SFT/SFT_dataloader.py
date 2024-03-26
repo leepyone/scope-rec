@@ -84,7 +84,8 @@ class SFTDataset(Dataset):
             new_list= [self.ctrl_symbols[0]]+item+[self.ctrl_symbols[1]]
             input_ids_append.append(new_list)
 
-        self.item_prefix_tree = Trie(input_ids_append)
+        # self.item_prefix_tree = Trie(input_ids_append)
+        self.item_prefix_tree = Trie_str(input_ids_append)
 
     # 根据input ids 获得scope_mask矩阵
     def get_scope_mask(self, labels):
@@ -131,12 +132,17 @@ class SFTDataset(Dataset):
             # 对于有效区间中的每个step，更新scope_mask
             for step_idx in range(start_idx + 1, end_idx):
                 scope_list = self.item_prefix_tree.next_tokens(labels[batch_idx, start_idx:step_idx].tolist())
+                if len(scope_list) < 2 : # 如果scope 内的token只有1个，这个时候就不做掩码操作了
+                    continue
                 scope_mask[batch_idx, step_idx, :] = True
                 scope_mask[batch_idx, step_idx, scope_list] = False
 
         scope_mask = scope_mask.to(labels.device)
 
         return scope_mask
+
+    def get_scope(self, labels):
+        pass
 
     def find_maximum_category(self, item_list, target_item):
         category_count = {c: 0 for c in self.category2item if target_item not in self.category2item[c]}
@@ -731,6 +737,43 @@ class Trie:
         next_tokens = list(start.keys())
 
         return next_tokens
+
+    def reached_leaf(self, current_seq):
+        next_tokens = self.next_tokens(current_seq)
+
+        return len(next_tokens) == 0
+
+    def count_leaves(self, root):
+        next_nodes = list(root.values())
+        if len(next_nodes) == 0:
+            return 1
+        else:
+            return sum([self.count_leaves(nn) for nn in next_nodes])
+
+# 构建一个单层的字典，每个查询都是o(1) 的时间复杂度
+class Trie_str:
+    def __init__(self, item_list) -> None:
+        self.max_height = max([len(one) for one in item_list])
+        self.start_id = item_list[0][0] # <SOI> 用于检索第一层
+        self.trie = {}
+        for tokens in item_list:
+            prefix = [str(tokens[0])]
+            for i in range(1, len(tokens)):
+                prefix_str = ','.join(prefix)
+                if prefix_str not in self.trie.keys():
+                    self.trie[prefix_str] = set()
+                prefix.append(str(tokens[i]))
+                self.trie[prefix_str].add(tokens[i])
+
+
+    def next_tokens(self, current_seq):  # 这个只返回一层对应的token
+        if len(current_seq) == 0:
+            return self.trie[str(self.start_id)]
+        current_seq = list(map(lambda x: str(x),current_seq))
+        key_str = ','.join(current_seq)
+        next_tokens = self.trie[key_str]
+
+        return list(next_tokens)
 
     def reached_leaf(self, current_seq):
         next_tokens = self.next_tokens(current_seq)

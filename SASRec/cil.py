@@ -118,9 +118,9 @@ def ranking():
 model_path = {
     'beauty': 'saved/beauty.pth',
     'sub_movie': 'saved/sub_movie_10.pth',
-    'steam': '/home/wangshuo/codes/InstructControllableRec_RLHF/SASRec/saved/steam.pth',
-    'toys': '/home/wangshuo/codes/InstructControllableRec_RLHF/SASRec/saved/toys.pth',
-    'movies': '/home/wangshuo/codes/InstructControllableRec_RLHF/SASRec/saved/movies.pth',
+    'steam': '/home/wangshuo/codes/scope-rec/SASRec/saved/steam.pth',
+    'toys': '/home/wangshuo/codes/scope-rec/SASRec/saved/toys.pth',
+    'movies': '/home/wangshuo/codes/scope-rec/SASRec/saved/movies.pth',
 }
 if __name__ == '__main__':
 
@@ -129,12 +129,12 @@ if __name__ == '__main__':
     parser.add_argument('--port', type=int, default=0)
     args = parser.parse_args()
 
-    category2item = load_pickle(f'/home/wangshuo/codes/InstructControllableRec_RLHF/SASRec/dataset/{args.dataset}/category.pickle')
+    category2item = load_pickle(f'/home/wangshuo/codes/scope-rec/SASRec/dataset/{args.dataset}/category.pickle')
 
     config = Config(
         model="SASRec",
         dataset=args.dataset,
-        config_file_list=['/home/wangshuo/codes/InstructControllableRec_RLHF/SASRec/sasrec.yaml'],
+        config_file_list=['/home/wangshuo/codes/scope-rec/SASRec/sasrec.yaml'],
         config_dict={
             'state': 'CRITICAL'
         }

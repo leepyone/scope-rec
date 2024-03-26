@@ -225,7 +225,7 @@ ControlRec1_group[f"{ControlRec_task_key}-reverse"] = SFTTemplate(**template)
 ControlRec_domain_group = {}
 
 template = {
-    'sys': "You are an expert recommender engine specializing in {domain} products.. ",
+    'sys': "You are an expert recommender engine specializing in {domain} products. ",
     'first_turn': ["You need to generate a recommendation list complying user's intention. ",
                    "Ok, I will do it considering user's intention. "],
     'inst': "Here is user's intention: {synthetic_intention}. " +

@@ -14,6 +14,7 @@ from tqdm import tqdm
 import re
 from prompt import *
 import glob
+import torch.nn as nn
 
 huggingface_proxies = {
     'http': '172.31.225.67:12621',
@@ -488,6 +489,47 @@ def GPT_eval(topk):
         print(f'count: {idx+1-start} | ' + " | ".join([f"{_}: {__/(idx+1-start):.4f}" for _, __ in metrics.items()]))
         save_pickle(GPT_eval_result, save_file)
     print('GPT eval done!!!')
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, weight=1.0, gamma=2.0, ignore_index=-100, reduction='mean'):
+        super(FocalLoss, self).__init__()
+        self.gamma = gamma
+        self.weight = weight
+        self.ignore_index = ignore_index
+        self.reduction = reduction
+
+    def forward(self, logits, labels):
+        """
+        logits: 未经softmax的模型输出, 形状为 [B, C, L], 其中 C 是词汇表大小
+        labels: 真实标签, 形状为 [B, L]
+        """
+        # 计算log_softmax，为了数值稳定性
+        log_preds = F.log_softmax(logits, dim=1)
+
+        # 将 labels 转换为 one-hot 编码
+        # B, C, L = logits.size()
+        # labels_one_hot = F.one_hot(labels, num_classes=C).transpose(1, 2)  # 转换为 [B, C, L]
+
+        # 选取对应标签的log预测概率
+        log_preds = log_preds.gather(1, labels.unsqueeze(1)).squeeze(1)  # [B, L]
+
+        # 计算Focal Loss
+        preds_softmax = log_preds.exp()  # 将 log_softmax 转换回概率值
+        focal_factor = (1 - preds_softmax) ** self.gamma  # 调整因子
+        focal_loss = -1 * self.weight * focal_factor * log_preds  # 应用权重和调整因子
+
+        # 处理忽略的索引
+        if self.ignore_index is not None:
+            mask = labels != self.ignore_index
+            focal_loss = focal_loss * mask
+
+        if self.reduction == 'mean':
+            return focal_loss.masked_select(mask).mean()
+        elif self.reduction == 'sum':
+            return focal_loss.masked_select(mask).sum()
+        else:  # 'none'
+            return focal_loss
 
 
 if __name__ == '__main__':

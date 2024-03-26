@@ -12,8 +12,9 @@ nohup python train.py \
 --SFT_test_task SFTTestSeqRec \
 --backup_ip 0.0.0.0 \
 --idx \
+--use_CBS \
 --user_control_symbol \
---SFT_load /home/wangshuo/codes/scope-rec/snap/0322-movies-trl/Epoch40_SFT>/home/wangshuo/codes/scope-rec/snap/0322-movies-trl/Epoch40_SFT_test_output.log 2>&1 &
+--SFT_load /home/wangshuo/codes/scope-rec/snap/0322-movies-trl/Epoch40_SFT>/home/wangshuo/codes/scope-rec/snap/0322-movies-trl/Epoch40_SFT_CBS_test_output.log 2>&1 &
 # --FA2
 # --use_CBS \
 #--user_control_symbol \
