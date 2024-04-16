@@ -2,7 +2,7 @@ import random
 import sys
 import time
 import os 
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import numpy as np
 import torch
 import transformers
@@ -45,6 +45,7 @@ if __name__ == '__main__':
     elif args.train_stage == 'SFT_Test':
         trainer = SFTTrainer(args)
         trainer.SFT_test()
+        # trainer.SFT_test_pipline()
     elif args.train_stage == 'SFT_Merge':
         trainer = SFTTrainer(args)
         trainer.SFT_adapter_merge()

@@ -116,7 +116,7 @@ headers = {"User-Agent": "Test Client"}
 def generate_sample(prompt, model, first):
     if isinstance(model, str):
         pload = {
-            "model": args.backbone,
+            "model":args.backbone,
             "prompt": prompt,
             "n": 1,
             "temperature": 0.0,
@@ -126,6 +126,7 @@ def generate_sample(prompt, model, first):
         response = requests.post(f'http://127.0.0.1:{args.port}/v1/completions', headers=headers, json=pload, stream=False)
         output_data = json.loads(response.content)
         output_text = output_data["choices"][0]['text']
+        # output_text = output_data['text'][0]
         output = output_text
     else:
         _model, _tokenizer = model.actor_model, model.tokenizer
@@ -182,11 +183,11 @@ def external_args_func(parser):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--sample-input-file", type=str, default='data/dataset/GSM8K/')
+    parser.add_argument("-f", "--sample-input-file", type=str, default='/home/wangshuo/codes/scope-rec/data/dataset/general_task/GSM8K')
     parser.add_argument("-o", "--sample-output-file", type=str, default="gsm8k_res.jsonl")
-    parser.add_argument("--port", type=int, default=13579)
+    parser.add_argument("--port", type=int, default=8010)
     parser.add_argument("--gen_max_length", type=int, default=2048)
-    parser.add_argument("--backbone", type=str, default="snap/Llama-2-7b-hf-chat/")
+    parser.add_argument("--backbone", type=str, default="/home/wangshuo/weights/llama2/Llama-2-7b-hf-chat/")
     args = parser.parse_args()
     kwargs = vars(args)
     args = Config(**kwargs)
@@ -241,7 +242,7 @@ if __name__ == '__main__':
             pbar.update(1)
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    with open(f"Test/GSM8K/gsm8k_eval_result_{timestamp}.json", "w") as f:
+    with open(f"/home/wangshuo/codes/scope-rec/vllm/Test/GSM8k/gsm8k_eval_result_{timestamp}.json", "w") as f:
         result = {}
         result["args"] = vars(args)
         result["acc"] = np.mean(acc_res)

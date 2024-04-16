@@ -1,6 +1,6 @@
 nohup python train.py \
 --seed 0 \
---data_path /home/wangshuo/codes/scope-rec/data/dataset/movies/ \
+--data_path /home/wangshuo/codes/scope-rec/data/dataset/toys/ \
 --backbone /home/wangshuo/weights/llama2/Llama-2-7b-hf-chat/ \
 --item_index title \
 --test_batch_size 16 \
@@ -12,8 +12,7 @@ nohup python train.py \
 --SFT_test_task SFTTestSeqRec \
 --backup_ip 0.0.0.0 \
 --idx \
---user_control_symbol \
---SFT_load /home/wangshuo/codes/scope-rec/snap/0322-movies-trl/Epoch40_SFT>/home/wangshuo/codes/scope-rec/snap/0322-movies-trl/Epoch40_SFT_test_output.log 2>&1 &
+--SFT_load /home/wangshuo/codes/scope-rec/snap/0411-toys-method1/Epoch40_SFT>/home/wangshuo/codes/scope-rec/snap/0411-toys-method1/Epoch40_SFT_test_output.log 2>&1 &
 # --FA2
 # --use_CBS \
 #--user_control_symbol \

@@ -115,14 +115,18 @@ def evaluate(subject):
             "max_tokens": 1,
             "logprobs": 100
         }
+        # response = requests.post(f'http://127.0.0.1:{args.port}/generate', headers=headers, json=pload, stream=False)
         response = requests.post(f'http://127.0.0.1:{args.port}/v1/completions', headers=headers, json=pload, stream=False)
         output_data = json.loads(response.content)
         dist = output_data['choices'][0]['logprobs']['top_logprobs'][0]
+        # dist = output_data['text'][0].split("[/INST]")[-1]
         pred = ''
         max_logprobs = float("-inf")
         for a in ['▁A', '▁B', '▁C', '▁D', 'A', 'B', 'C', 'D']:
             if a not in dist:
                 continue
+            # pred = a
+            # break
             if dist[a] > max_logprobs:
                 pred = a
                 max_logprobs = dist[a]
@@ -130,7 +134,7 @@ def evaluate(subject):
         if pred == '':
             error_count += 1
             print(f'example: {example_count}, error: {error_count}')
-        cor = label in pred
+        cor = label.lower() in pred.lower()
         cors.append(cor)
 
     acc = np.mean(cors)
@@ -190,7 +194,7 @@ def main(args):
         #     cors, acc = evaluate(subject)
         #     results.append((cors, acc))
         #     pbar.update(len(cors))
-        with ProcessPoolExecutor(max_workers=57) as executor:         # 21m59s
+        with ProcessPoolExecutor(max_workers=1) as executor:         # 21m59s
             results = list(tqdm(executor.map(evaluate, subjects), total=len(subjects)))
         # with ThreadPoolExecutor(max_workers=57) as executor:          #
         #     results = list(tqdm(executor.map(evaluate, subjects), total=len(subjects)))
@@ -212,11 +216,11 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--ntrain", "-k", type=int, default=5)
-    parser.add_argument("--data_dir", "-d", type=str, default="data/dataset/MMLU")
-    parser.add_argument("--save_dir", "-s", type=str, default="Test/MMLU_results")
+    parser.add_argument("--data_dir", "-d", type=str, default="/home/wangshuo/codes/scope-rec/data/dataset/general_task/MMLU")
+    parser.add_argument("--save_dir", "-s", type=str, default="/home/wangshuo/codes/scope-rec/vllm/Test/MMLU_results")
     parser.add_argument("--subject_start", type=int, default=0)
-    parser.add_argument("--port", type=int, default=13579)
-    parser.add_argument("--backbone", type=str, default="snap/Llama-2-7b-hf-chat/")
+    parser.add_argument("--port", type=int, default=8010)
+    parser.add_argument("--backbone", type=str, default="/home/wangshuo/weights/llama2/Llama-2-7b-hf-chat/")
     parser.add_argument('--llama2_chat_template', action='store_true', help='是否使用llama2-chat模板')
     args = parser.parse_args()
     # args = get_args(external_args_func)

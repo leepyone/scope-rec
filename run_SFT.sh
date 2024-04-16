@@ -1,7 +1,7 @@
-nohup accelerate launch --num_processes 3 --gpu_ids 3,6,7 --main_process_port 2036 train.py \
+nohup accelerate launch --num_processes 4 --gpu_ids 1,3,4,5 --main_process_port 2036 train.py \
 --seed 0 \
---data_path data/dataset/movies/ \
---output snap/0322-movies-trl/ \
+--data_path data/dataset/toys/ \
+--output snap/0414-toys-method3-ctrl/ \
 --backbone /home/wangshuo/weights/llama2/Llama-2-7b-hf-chat/ \
 --item_index title \
 --batch_size 1 \
@@ -23,10 +23,9 @@ nohup accelerate launch --num_processes 3 --gpu_ids 3,6,7 --main_process_port 20
 --share_chat_gpt_ratio 0.0 \
 --llama2_chat_template \
 --lm_head \
---user_control_symbol \
---idx>>snap/0322-movies-trl/output.log 2>&1 &
+--idx>>snap/0414-toys-method3-ctrl/output.log 2>&1 &
 
-# --SFT_load /home/wangshuo/codes/scope-rec/snap/0226-toys-scope-mask/Epoch04_SFT
+# --SFT_load /home/wangshuo/codes/scope-rec/snap/0411-toys-method1/Epoch06_SFT
 # --FA2 \
 #--user_control_symbol \
 #--use_scope_mask \

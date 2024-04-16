@@ -79,24 +79,102 @@ def out_count(predict, item_list, k):
             count += 1
     return count
 
+# =================================== 过滤掉pop的item ===================================
+
+def get_pop_by_percent(item_count_dict, test_list=None, percent=0.1):
+    sorted_count = sorted(item_count_dict.items(), key=lambda x: x[1])
+    frequent_len = int(len(sorted_count) * percent)
+    array = sorted_count[-frequent_len:-1]
+    print(f"\t临界的次数是 {array[0][1]}")
+    frequent_list = list(map(lambda x: x[0], array))
+    if test_list != None:
+        cal_test_pop(frequent_list, test_list)
+    return frequent_list
+
+def get_pop_by_average(item_count_dict,test_list=None):
+    counts = np.array(list(item_count_dict.values()))
+    mean_count = np.mean(counts)
+    sorted_count = sorted(item_count_dict.items(), key=lambda x: x[1])
+    frequent_list = []
+    for item in sorted_count:
+        if item[1] > mean_count:
+            frequent_list.append(item[0])
+    print(f"\t临界的次数是 {mean_count}")
+    if test_list != None:
+        cal_test_pop(frequent_list, test_list)
+    return frequent_list
+
+def cal_test_pop(frequent_list, test_list):
+    frequent_count = 0
+    for item in test_list:
+        if item in frequent_list:
+            frequent_count += 1
+    print(f"\t测试集预测的物品为流行物品的个数为：{frequent_count}")
+
+def filter_popular_item(predict_data, items_count_dict, pop_size=0.05, filter_count = 2000, mode='average'):
+    if mode == 'average':
+        frequent_list = get_pop_by_average(items_count_dict)
+    else:
+        frequent_list = get_pop_by_percent(items_count_dict, percent=pop_size)
+    filter_predict_data = []
+    count = 0
+    freq_count = 0
+    for predict_item in predict_data:
+        if predict_item[0][0] in frequent_list:
+            freq_count +=1
+        if count < filter_count and predict_item[0][0] in frequent_list:
+            count += 1
+            continue
+        filter_predict_data.append(predict_item)
+
+    print(f"frequent count is {freq_count}")
+    print(f"过滤后的预测用户数为 {len(filter_predict_data)}")
+    return filter_predict_data
 
 item_path_dict = {
     'steam': '/home/wangshuo/codes/scope-rec/data/dataset/steam/items.pickle',
     'movies': '/home/wangshuo/codes/scope-rec/data/dataset/movies/items.pickle',
     'toys': '/home/wangshuo/codes/scope-rec/data/dataset/toys/items.pickle',
 }
+item_dict_path_dict = {
+    'steam': '/home/wangshuo/codes/scope-rec/data/dataset/steam/items_count_dict.pickle',
+    'movies': '/home/wangshuo/codes/scope-rec/data/dataset/movies/items_count_dict.pickle',
+    'toys': '/home/wangshuo/codes/scope-rec/data/dataset/toys/items_count_dict.pickle',
+}
 
 # read  data
-dataset_name = 'movies'
-predict_file_path = '/home/wangshuo/codes/scope-rec/snap/0322-movies-trl/Epoch40_SFT_Result_SFTTestSeqRec_Top10.pickle'
+# dataset_name = 'movies'
+# dataset_name = 'steam'
+dataset_name = 'toys'
+# predict_file_path = '/home/wangshuo/codes/scope-rec/snap/0328-steam-method3/Epoch40_SFT_Result_SFTTestSeqRec_CBS_Top10.pickle'
+# predict_file_path = '/home/wangshuo/codes/scope-rec/snap/0224-steam-method1/Epoch40_SFT_Result_SFTTestSeqRec_Top10.pickle'
 # predict_file_path = '/home/wangshuo/codes/scope-rec/snap/0312-steam-method2/Epoch35_SFT_Result_SFTTestSeqRec_Top10.pickle'
-# predict_file_path = '/home/wangshuo/codes/scope-rec/snap/0223-movies-scope-mask/Epoch33_SFT_Result_SFTTestSeqRec_CBS_Top10.pickle'
+# predict_file_path = '/home/wangshuo/codes/scope-rec/snap/0224-steam-method1/Epoch40_SFT_Result_SFTTestSeqRec_Pipeline_Top10.pickle'
+# predict_file_path = '/home/wangshuo/codes/scope-rec/snap/0224-steam-method1/Epoch40_SFT_Result_SFTTestSeqRec_Top10.pickle'
+# movies
+# predict_file_path = '/home/wangshuo/codes/scope-rec/snap/0320-movies-method1/Epoch40_SFT_Result_SFTTestSeqRec_Top10.pickle'
+# predict_file_path = '/home/wangshuo/codes/scope-rec/snap/0327-movies-method3/Epoch40_SFT_Result_SFTTestSeqRec_CBS_Top10.pickle'
+predict_file_path = '/home/wangshuo/codes/scope-rec/snap/0320-movies-method1/Epoch40_SFT_Result_SFTTestSeqRec_Pipeline_Top10.pickle'
+
+# toys
+predict_file_path = '/home/wangshuo/codes/scope-rec/snap/0208-toys-ctrl/Epoch35_SFT_Result_SFTTestSeqRec_Top10.pickle'
+predict_file_path = '/home/wangshuo/codes/scope-rec/snap/0208-toys-ctrl/Epoch35_SFT_Result_SFTTestSeqRec_Top10.pickle'
 
 item_path = item_path_dict[dataset_name]
+items_count_path = item_dict_path_dict[dataset_name]
 predict_data = pd.read_pickle(predict_file_path)
 item_data = pd.read_pickle(item_path)
 item_data = set(item_data)
+# items_count_dict = pd.read_pickle(items_count_path)
 print(f"训练中的item个数为：{len(item_data)}")
+
+# 去掉一些流行的物品的预测结果
+print(f'{len(predict_data)}个用户')
+filter_count = 2000
+# if dataset_name == 'movies':
+#     filter_count = 1000
+
+# predict_data = filter_popular_item(predict_data, items_count_dict, filter_count=filter_count, mode='pop')
 
 # # 重新提取一下对应的item
 # for i in range(len(predict_data)):
@@ -134,7 +212,7 @@ for label, predict in tqdm(predict_data, total=(len(predict_data))):
         MRR_dict[k].append(calculate_mrr_single_query(label, predict[:num], k))
         out_count_dict[k].append(out_count(predict, item_data, k))
 
-print(f'{len(predict_data)}个用户')
+
 print(f'预测了{sum_count}个item')
 for k in topk_list:
     NDCG = np.mean(NDCG_dict[k])

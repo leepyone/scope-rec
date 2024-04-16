@@ -10,3 +10,7 @@
 /SFT/__pycache__
 /logs/
 /RLHF/__pycache__/
+/data/figures/
+/data/toys/
+/vllm/server_log/
+/vllm/Test/
